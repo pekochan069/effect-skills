@@ -1,4 +1,4 @@
-import { describe, expect, test } from "bun:test";
+import { describe, expect, test } from "vitest";
 import { mkdtemp, readFile, stat } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
@@ -106,11 +106,12 @@ describe("runCli", () => {
     );
 
     expect(result.status).toBe("ok");
-    if (result.status === "ok") {
-      expect(result.results.map((item) => item.target)).toEqual(["codex", "claude"]);
-      expect(result.results.map((item) => item.scope)).toEqual(["global", "project"]);
-      expect(result.results.every((item) => item.status === "installed")).toBe(true);
+    if (result.status !== "ok") {
+      throw new Error("Expected interactive install to succeed");
     }
+    expect(result.results.map((item) => item.target)).toEqual(["codex", "claude"]);
+    expect(result.results.map((item) => item.scope)).toEqual(["global", "project"]);
+    expect(result.results.every((item) => item.status === "installed")).toBe(true);
   });
 
   test("rejects interactive installs in non-TTY environments", async () => {
@@ -158,9 +159,11 @@ describe("runCli", () => {
 
     expect(result.status).toBe("error");
     expect(result.output).toContain("cancelled");
-    await expect(stat(path.join(home, ".codex", "skills", "effect"))).rejects.toThrow();
-    await expect(stat(path.join(home, ".claude", "skills", "effect"))).rejects.toThrow();
-    await expect(stat(path.join(cwd, ".cursor", "rules", "effect-skills.mdc"))).rejects.toThrow();
+    await expect(stat(path.join(home, ".codex", "skills", "effect"))).rejects.toThrow("ENOENT");
+    await expect(stat(path.join(home, ".claude", "skills", "effect"))).rejects.toThrow("ENOENT");
+    await expect(stat(path.join(cwd, ".cursor", "rules", "effect-skills.mdc"))).rejects.toThrow(
+      "ENOENT",
+    );
   });
 
   test("reports direct install outcomes", async () => {

@@ -1,6 +1,7 @@
 {
   "name": "@pekochan069/effect-skills",
   "version": "0.0.1",
+  "private": false,
   "bin": {
     "effect-skills": "./dist/index.js"
   },
@@ -13,8 +14,8 @@
   "module": "dist/index.js",
   "scripts": {
     "build": "rolldown -c",
-    "prepublishOnly": " bun run check-types && bun run lint && bun test && bun run build",
-    "test": "bun test",
+    "prepublishOnly": " bun run check-types && bun run lint && bun run test && bun run build",
+    "test": "vitest run",
     "check-types": "tsc --noEmit",
     "format": "oxfmt",
     "lint": "oxlint"
@@ -26,11 +27,11 @@
     "effect": "^4.0.0-beta.59"
   },
   "devDependencies": {
-    "bun-types": "^1.3.13",
     "oxfmt": "^0.47.0",
     "oxlint": "^1.62.0",
     "rolldown": "^1.0.0-rc.17",
-    "typescript": "^6"
+    "typescript": "^6",
+    "vitest": "^4.1.5"
   },
   "engines": {
     "node": ">=20.19.0"

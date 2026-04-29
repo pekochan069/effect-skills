@@ -1,4 +1,4 @@
-import { describe, expect, test } from "bun:test";
+import { describe, expect, test } from "vitest";
 import { mkdir, mkdtemp, readFile, stat, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
@@ -145,7 +145,7 @@ describe("installTargets", () => {
     ).resolves.toBeDefined();
     await expect(
       stat(path.join(home, ".config", "opencode", "skills", "effect")),
-    ).rejects.toThrow();
+    ).rejects.toThrow("ENOENT");
   });
 
   test("force replaces only the selected project destination", async () => {
@@ -204,7 +204,7 @@ describe("installTargets", () => {
       }),
     ]);
 
-    await expect(stat(path.join(home, ".codex", "skills", "effect"))).rejects.toThrow();
+    await expect(stat(path.join(home, ".codex", "skills", "effect"))).rejects.toThrow("ENOENT");
   });
 
   test("reports missing skill source without creating a partial project install", async () => {
@@ -226,7 +226,7 @@ describe("installTargets", () => {
       }),
     ]);
 
-    await expect(stat(path.join(cwd, ".codex", "skills", "effect"))).rejects.toThrow();
+    await expect(stat(path.join(cwd, ".codex", "skills", "effect"))).rejects.toThrow("ENOENT");
   });
 });
 

@@ -1,4 +1,4 @@
-import { describe, expect, test } from "bun:test";
+import { describe, expect, test } from "vitest";
 
 import { NodePath } from "@effect/platform-node";
 import { Effect } from "effect";
@@ -54,46 +54,51 @@ describe("target registry", () => {
     const target = getTarget("claude");
 
     expect(target).toBeDefined();
-    if (target) {
-      expect(renderInstallArtifact(target, { skillSource: "/repo/skills/effect" })).toEqual({
-        type: "copy-directory",
-        source: "/repo/skills/effect",
-      });
+    if (!target) {
+      throw new Error("Expected claude target to be registered");
     }
+    expect(renderInstallArtifact(target, { skillSource: "/repo/skills/effect" })).toEqual({
+      type: "copy-directory",
+      source: "/repo/skills/effect",
+    });
   });
 
   test("renders Cursor as an MDC project rule", () => {
     const target = getTarget("cursor");
 
     expect(target).toBeDefined();
-    if (target) {
-      const artifact = renderInstallArtifact(target, {
-        skillSource: "/repo/skills/effect",
-      });
-
-      expect(artifact.type).toBe("write-file");
-      if (artifact.type === "write-file") {
-        expect(artifact.contents).toContain("---");
-        expect(artifact.contents).toContain("Effect v4");
-        expect(artifact.contents).toContain("skills/effect/SKILL.md");
-      }
+    if (!target) {
+      throw new Error("Expected cursor target to be registered");
     }
+    const artifact = renderInstallArtifact(target, {
+      skillSource: "/repo/skills/effect",
+    });
+
+    expect(artifact.type).toBe("write-file");
+    if (artifact.type !== "write-file") {
+      throw new Error("Expected cursor target to render a file");
+    }
+    expect(artifact.contents).toContain("---");
+    expect(artifact.contents).toContain("Effect v4");
+    expect(artifact.contents).toContain("skills/effect/SKILL.md");
   });
 
   test("does not render local source paths into Cursor rules", () => {
     const target = getTarget("cursor");
 
     expect(target).toBeDefined();
-    if (target) {
-      const artifact = renderInstallArtifact(target, {
-        skillSource: "/tmp/private-checkout/skills/effect",
-      });
-
-      expect(artifact.type).toBe("write-file");
-      if (artifact.type === "write-file") {
-        expect(artifact.contents).not.toContain("/tmp/private-checkout");
-      }
+    if (!target) {
+      throw new Error("Expected cursor target to be registered");
     }
+    const artifact = renderInstallArtifact(target, {
+      skillSource: "/tmp/private-checkout/skills/effect",
+    });
+
+    expect(artifact.type).toBe("write-file");
+    if (artifact.type !== "write-file") {
+      throw new Error("Expected cursor target to render a file");
+    }
+    expect(artifact.contents).not.toContain("/tmp/private-checkout");
   });
 });
 
