@@ -3,12 +3,12 @@ import { mkdtemp, readFile, stat } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 
-import { BunServices } from "@effect/platform-bun";
+import { NodeServices } from "@effect/platform-node";
 import { Effect } from "effect";
 
 import { runCli } from "../cli";
 
-const testLayer = BunServices.layer;
+const testLayer = NodeServices.layer;
 
 describe("runCli command parsing", () => {
   test("renders Effect CLI help for the top-level command", () => {

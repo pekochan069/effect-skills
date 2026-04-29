@@ -1,6 +1,6 @@
-#!/usr/bin/env bun
+#!/usr/bin/env node
 
-import { BunRuntime, BunServices } from "@effect/platform-bun";
+import { NodeRuntime, NodeServices } from "@effect/platform-node";
 import { Effect, Path } from "effect";
 
 import { runCli } from "./cli";
@@ -30,4 +30,4 @@ const program = Effect.gen(function* () {
   }
 });
 
-BunRuntime.runMain(program.pipe(Effect.provide(BunServices.layer)));
+NodeRuntime.runMain(program.pipe(Effect.provide(NodeServices.layer)));

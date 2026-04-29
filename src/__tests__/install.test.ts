@@ -3,12 +3,12 @@ import { mkdir, mkdtemp, readFile, stat, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 
-import { BunFileSystem, BunPath } from "@effect/platform-bun";
+import { NodeFileSystem, NodePath } from "@effect/platform-node";
 import { Effect, Layer } from "effect";
 
 import { installTargets } from "../install";
 
-const testLayer = Layer.mergeAll(BunFileSystem.layer, BunPath.layer);
+const testLayer = Layer.mergeAll(NodeFileSystem.layer, NodePath.layer);
 
 async function tempDir() {
   return mkdtemp(path.join(os.tmpdir(), "effect-skills-test-"));

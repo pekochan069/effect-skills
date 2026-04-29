@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 
-import { BunPath } from "@effect/platform-bun";
+import { NodePath } from "@effect/platform-node";
 import { Effect } from "effect";
 
 import { renderInstallArtifact } from "../target-renderers";
@@ -108,6 +108,6 @@ function resolveDestination(
   }
 
   return Effect.runPromise(
-    resolveTargetDestination(target, env, scope).pipe(Effect.provide(BunPath.layer)),
+    resolveTargetDestination(target, env, scope).pipe(Effect.provide(NodePath.layer)),
   );
 }
