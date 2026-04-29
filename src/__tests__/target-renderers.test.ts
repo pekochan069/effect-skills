@@ -19,16 +19,33 @@ describe("target registry", () => {
   test("resolves documented destinations from fake environment paths", async () => {
     const env = { home: "/home/tester", cwd: "/workspace/project" };
 
-    await expect(resolveDestination("codex", env)).resolves.toBe(
+    await expect(resolveDestination("codex", env, "global")).resolves.toBe(
       "/home/tester/.codex/skills/effect",
     );
-    await expect(resolveDestination("claude", env)).resolves.toBe(
+    await expect(resolveDestination("claude", env, "global")).resolves.toBe(
       "/home/tester/.claude/skills/effect",
     );
-    await expect(resolveDestination("opencode", env)).resolves.toBe(
+    await expect(resolveDestination("opencode", env, "global")).resolves.toBe(
       "/home/tester/.config/opencode/skills/effect",
     );
-    await expect(resolveDestination("cursor", env)).resolves.toBe(
+    await expect(resolveDestination("cursor", env, "global")).resolves.toBe(
+      "/workspace/project/.cursor/rules/effect-skills.mdc",
+    );
+  });
+
+  test("resolves native project destinations from fake environment paths", async () => {
+    const env = { home: "/home/tester", cwd: "/workspace/project" };
+
+    await expect(resolveDestination("codex", env, "project")).resolves.toBe(
+      "/workspace/project/.codex/skills/effect",
+    );
+    await expect(resolveDestination("claude", env, "project")).resolves.toBe(
+      "/workspace/project/.claude/skills/effect",
+    );
+    await expect(resolveDestination("opencode", env, "project")).resolves.toBe(
+      "/workspace/project/.opencode/skills/effect",
+    );
+    await expect(resolveDestination("cursor", env, "project")).resolves.toBe(
       "/workspace/project/.cursor/rules/effect-skills.mdc",
     );
   });
@@ -83,6 +100,7 @@ describe("target registry", () => {
 function resolveDestination(
   targetName: string,
   env: { readonly home: string; readonly cwd: string },
+  scope: "global" | "project",
 ) {
   const target = getTarget(targetName);
   if (target === undefined) {
@@ -90,6 +108,6 @@ function resolveDestination(
   }
 
   return Effect.runPromise(
-    resolveTargetDestination(target, env).pipe(Effect.provide(BunPath.layer)),
+    resolveTargetDestination(target, env, scope).pipe(Effect.provide(BunPath.layer)),
   );
 }

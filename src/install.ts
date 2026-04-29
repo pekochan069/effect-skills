@@ -2,11 +2,16 @@ import { Effect, FileSystem, Path } from "effect";
 
 import type { TargetName } from "./result";
 import { renderInstallArtifact } from "./target-renderers";
-import type { InstallEnvironment } from "./targets";
+import type { InstallEnvironment, InstallScope } from "./targets";
 import { getTarget, resolveTargetDestination } from "./targets";
 
+export type InstallSelection = {
+  readonly target: TargetName;
+  readonly scope: InstallScope;
+};
+
 export type InstallOptions = {
-  readonly targets: readonly TargetName[];
+  readonly targets: readonly InstallSelection[];
   readonly force: boolean;
   readonly env: InstallEnvironment;
   readonly skillSource: string;
@@ -14,6 +19,7 @@ export type InstallOptions = {
 
 export type InstallResult = {
   readonly target: TargetName;
+  readonly scope: InstallScope;
   readonly status: "installed" | "skipped" | "failed";
   readonly destination: string;
   readonly message: string;
@@ -22,19 +28,21 @@ export type InstallResult = {
 export function installTargets(
   options: InstallOptions,
 ): Effect.Effect<readonly InstallResult[], never, FileSystem.FileSystem | Path.Path> {
-  return Effect.forEach(options.targets, (targetName) =>
+  return Effect.forEach(options.targets, (selection) =>
     Effect.gen(function* () {
-      const target = getTarget(targetName);
+      const target = getTarget(selection.target);
       if (target === undefined) {
         return {
-          target: targetName,
+          target: selection.target,
+          scope: selection.scope,
           status: "failed",
           destination: "",
-          message: `Unsupported target: ${targetName}`,
+          message: `Unsupported target: ${selection.target}`,
         } satisfies InstallResult;
       }
 
-      const destination = yield* resolveTargetDestination(target, options.env);
+      const scope = target.kind === "cursor-rule" ? "project" : selection.scope;
+      const destination = yield* resolveTargetDestination(target, options.env, scope);
 
       return yield* Effect.gen(function* () {
         const fs = yield* FileSystem.FileSystem;
@@ -43,6 +51,7 @@ export function installTargets(
         if (!options.force && exists) {
           return {
             target: target.name,
+            scope,
             status: "skipped",
             destination,
             message: "Destination already exists. Re-run with --force to replace it.",
@@ -61,6 +70,7 @@ export function installTargets(
 
         return {
           target: target.name,
+          scope,
           status: "installed",
           destination,
           message: `Installed ${target.label} guidance.`,
@@ -69,6 +79,7 @@ export function installTargets(
         Effect.catch((error) =>
           Effect.succeed({
             target: target.name,
+            scope,
             status: "failed",
             destination,
             message: error instanceof Error ? error.message : String(error),

@@ -7,6 +7,8 @@ export type InstallEnvironment = {
   readonly cwd: string;
 };
 
+export type InstallScope = "global" | "project";
+
 export type TargetKind = "native-skill" | "cursor-rule";
 
 export type Target = {
@@ -14,7 +16,7 @@ export type Target = {
   readonly label: string;
   readonly description: string;
   readonly kind: TargetKind;
-  readonly destinationSegments: (env: InstallEnvironment) => readonly string[];
+  readonly destinationSegments: (env: InstallEnvironment, scope: InstallScope) => readonly string[];
 };
 
 export const supportedTargets: readonly Target[] = [
@@ -23,21 +25,34 @@ export const supportedTargets: readonly Target[] = [
     label: "Codex",
     description: "Install as a Codex user skill.",
     kind: "native-skill",
-    destinationSegments: (env) => [env.home, ".codex", "skills", "effect"],
+    destinationSegments: (env, scope) => [
+      scope === "global" ? env.home : env.cwd,
+      ".codex",
+      "skills",
+      "effect",
+    ],
   },
   {
     name: "claude",
     label: "Claude Code",
     description: "Install as a Claude Code personal skill.",
     kind: "native-skill",
-    destinationSegments: (env) => [env.home, ".claude", "skills", "effect"],
+    destinationSegments: (env, scope) => [
+      scope === "global" ? env.home : env.cwd,
+      ".claude",
+      "skills",
+      "effect",
+    ],
   },
   {
     name: "opencode",
     label: "OpenCode",
     description: "Install as an OpenCode global skill.",
     kind: "native-skill",
-    destinationSegments: (env) => [env.home, ".config", "opencode", "skills", "effect"],
+    destinationSegments: (env, scope) =>
+      scope === "global"
+        ? [env.home, ".config", "opencode", "skills", "effect"]
+        : [env.cwd, ".opencode", "skills", "effect"],
   },
   {
     name: "cursor",
@@ -55,9 +70,10 @@ export function getTarget(name: string): Target | undefined {
 export function resolveTargetDestination(
   target: Target,
   env: InstallEnvironment,
+  scope: InstallScope = "global",
 ): Effect.Effect<string, never, Path.Path> {
   return Effect.gen(function* () {
     const path = yield* Path.Path;
-    return path.join(...target.destinationSegments(env));
+    return path.join(...target.destinationSegments(env, scope));
   });
 }

@@ -20,7 +20,7 @@ describe("installTargets", () => {
     const cwd = await tempDir();
 
     const results = await runInstall({
-      targets: ["codex"],
+      targets: [{ target: "codex", scope: "global" }],
       force: false,
       env: { home, cwd },
       skillSource: path.resolve("skills/effect"),
@@ -50,7 +50,7 @@ describe("installTargets", () => {
     await writeFile(path.join(destination, "SKILL.md"), "existing user content");
 
     const results = await runInstall({
-      targets: ["claude"],
+      targets: [{ target: "claude", scope: "global" }],
       force: false,
       env: { home, cwd },
       skillSource: path.resolve("skills/effect"),
@@ -78,7 +78,7 @@ describe("installTargets", () => {
     await writeFile(path.join(sibling, "SKILL.md"), "other skill content");
 
     const results = await runInstall({
-      targets: ["claude"],
+      targets: [{ target: "claude", scope: "global" }],
       force: true,
       env: { home, cwd },
       skillSource: path.resolve("skills/effect"),
@@ -103,7 +103,7 @@ describe("installTargets", () => {
     const cwd = await tempDir();
 
     const results = await runInstall({
-      targets: ["cursor"],
+      targets: [{ target: "cursor", scope: "project" }],
       force: false,
       env: { home, cwd },
       skillSource: path.resolve("skills/effect"),
@@ -121,12 +121,77 @@ describe("installTargets", () => {
     expect(rule).toContain("globs:");
   });
 
+  test("copies native skills into the current project when project scoped", async () => {
+    const home = await tempDir();
+    const cwd = await tempDir();
+
+    const results = await runInstall({
+      targets: [{ target: "opencode", scope: "project" }],
+      force: false,
+      env: { home, cwd },
+      skillSource: path.resolve("skills/effect"),
+    });
+
+    expect(results).toEqual([
+      expect.objectContaining({
+        target: "opencode",
+        scope: "project",
+        status: "installed",
+      }),
+    ]);
+
+    await expect(
+      stat(path.join(cwd, ".opencode", "skills", "effect", "SKILL.md")),
+    ).resolves.toBeDefined();
+    await expect(
+      stat(path.join(home, ".config", "opencode", "skills", "effect")),
+    ).rejects.toThrow();
+  });
+
+  test("force replaces only the selected project destination", async () => {
+    const home = await tempDir();
+    const cwd = await tempDir();
+    const projectDestination = path.join(cwd, ".codex", "skills", "effect");
+    const globalDestination = path.join(home, ".codex", "skills", "effect");
+    const sibling = path.join(cwd, ".codex", "skills", "other");
+    await mkdir(projectDestination, { recursive: true });
+    await mkdir(globalDestination, { recursive: true });
+    await mkdir(sibling, { recursive: true });
+    await writeFile(path.join(projectDestination, "SKILL.md"), "old project content");
+    await writeFile(path.join(globalDestination, "SKILL.md"), "global content");
+    await writeFile(path.join(sibling, "SKILL.md"), "other skill content");
+
+    const results = await runInstall({
+      targets: [{ target: "codex", scope: "project" }],
+      force: true,
+      env: { home, cwd },
+      skillSource: path.resolve("skills/effect"),
+    });
+
+    expect(results).toEqual([
+      expect.objectContaining({
+        target: "codex",
+        scope: "project",
+        status: "installed",
+      }),
+    ]);
+    await expect(readFile(path.join(projectDestination, "SKILL.md"), "utf8")).resolves.toContain(
+      "Effect v4",
+    );
+    await expect(readFile(path.join(globalDestination, "SKILL.md"), "utf8")).resolves.toBe(
+      "global content",
+    );
+    await expect(readFile(path.join(sibling, "SKILL.md"), "utf8")).resolves.toBe(
+      "other skill content",
+    );
+  });
+
   test("reports missing skill source without creating a partial install", async () => {
     const home = await tempDir();
     const cwd = await tempDir();
 
     const results = await runInstall({
-      targets: ["codex"],
+      targets: [{ target: "codex", scope: "global" }],
       force: false,
       env: { home, cwd },
       skillSource: path.join(cwd, "missing-skill"),
@@ -140,6 +205,28 @@ describe("installTargets", () => {
     ]);
 
     await expect(stat(path.join(home, ".codex", "skills", "effect"))).rejects.toThrow();
+  });
+
+  test("reports missing skill source without creating a partial project install", async () => {
+    const home = await tempDir();
+    const cwd = await tempDir();
+
+    const results = await runInstall({
+      targets: [{ target: "codex", scope: "project" }],
+      force: false,
+      env: { home, cwd },
+      skillSource: path.join(cwd, "missing-skill"),
+    });
+
+    expect(results).toEqual([
+      expect.objectContaining({
+        target: "codex",
+        scope: "project",
+        status: "failed",
+      }),
+    ]);
+
+    await expect(stat(path.join(cwd, ".codex", "skills", "effect"))).rejects.toThrow();
   });
 });
 

@@ -25,13 +25,19 @@ Install the Effect skill into a specific agent:
 bunx @pekochan069/effect-skills install --target codex
 ```
 
+By default, native agent skills install globally. Install into the current project instead with `--scope project`:
+
+```bash
+bunx @pekochan069/effect-skills install --target codex --scope project
+```
+
 Run the interactive checkbox installer to select one or more agents:
 
 ```bash
 bunx @pekochan069/effect-skills install
 ```
 
-In a checkbox prompt, use arrow keys to move, space to toggle agents, and enter to install the selected agents. Press Ctrl-C to cancel without installing. For scripts and non-TTY environments, pass `--target`.
+In the checkbox prompt, first select agents, then select one install scope for native skill targets. Press Ctrl-C to cancel without installing. For scripts and non-TTY environments, pass `--target`; add `--scope project` when the install should be local to the current project.
 
 Replace an existing Effect skill install intentionally:
 
@@ -41,12 +47,12 @@ bunx @pekochan069/effect-skills install --target codex --force
 
 Supported v1 targets:
 
-- `codex` - installs the full `skills/effect` skill directory for Codex.
-- `claude` - installs the full `skills/effect` skill directory for Claude Code.
-- `opencode` - installs the full `skills/effect` skill directory for OpenCode.
+- `codex` - installs the full `skills/effect` skill directory for Codex, globally or under the current project's `.codex/skills`.
+- `claude` - installs the full `skills/effect` skill directory for Claude Code, globally or under the current project's `.claude/skills`.
+- `opencode` - installs the full `skills/effect` skill directory for OpenCode, globally or under the current project's `.opencode/skills`.
 - `cursor` - installs a Cursor project rule under `.cursor/rules`.
 
-The installer refuses to overwrite an existing destination unless `--force` is passed. Depending on the target agent, restart or reload the agent after installing so it discovers the new guidance.
+The installer refuses to overwrite an existing destination unless `--force` is passed. Project scope is resolved from the current working directory. Depending on the target agent, restart or reload the agent after installing so it discovers the new guidance.
 
 ## Skills-manager install
 

@@ -2,12 +2,13 @@ import chalk from "chalk";
 import { Effect, FileSystem, Option, Path, Ref } from "effect";
 import { Command, Flag } from "effect/unstable/cli";
 
-import { installTargets, type InstallResult } from "./install";
+import { installTargets, type InstallResult, type InstallSelection } from "./install";
 import { selectTargets } from "./interactive";
 import type { TargetName } from "./result";
-import type { InstallEnvironment } from "./targets";
+import type { InstallEnvironment, InstallScope } from "./targets";
 
 const targetNames = ["codex", "claude", "opencode", "cursor"] as const;
+const scopeNames = ["global", "project"] as const;
 
 const targetFlag = Flag.choice("target", targetNames).pipe(
   Flag.optional,
@@ -15,6 +16,10 @@ const targetFlag = Flag.choice("target", targetNames).pipe(
 );
 const forceFlag = Flag.boolean("force").pipe(
   Flag.withDescription("Replace an existing Effect guidance install"),
+);
+const scopeFlag = Flag.choice("scope", scopeNames).pipe(
+  Flag.optional,
+  Flag.withDescription("Install globally or into the current project"),
 );
 
 const rootCommandForHelp = Command.make("effect-skills").pipe(
@@ -26,7 +31,7 @@ export type CliOptions = {
   readonly env: InstallEnvironment;
   readonly skillSource: string;
   readonly isTty: boolean;
-  readonly selectTargets?: () => Promise<readonly TargetName[]> | readonly TargetName[];
+  readonly selectTargets?: () => Promise<readonly InstallSelection[]> | readonly InstallSelection[];
 };
 
 export type CliResult =
@@ -41,9 +46,7 @@ export type CliResult =
       readonly output: string;
     };
 
-export function runCli(
-  options: CliOptions,
-): Effect.Effect<CliResult, never, Command.Environment> {
+export function runCli(options: CliOptions): Effect.Effect<CliResult, never, Command.Environment> {
   return Effect.gen(function* () {
     if (isHelpRequest(options.args)) {
       return {
@@ -87,11 +90,13 @@ function makeRootCommand(options: CliOptions, resultRef: Ref.Ref<CliResult | und
     {
       target: targetFlag,
       force: forceFlag,
+      scope: scopeFlag,
     },
     (config) =>
       executeInstallCommand(options, {
         target: Option.getOrUndefined(config.target),
         force: config.force,
+        scope: Option.getOrUndefined(config.scope) ?? "global",
       }).pipe(Effect.flatMap((result) => Ref.set(resultRef, result))),
   ).pipe(Command.withDescription("Install Effect guidance into a supported coding agent"));
 
@@ -106,12 +111,13 @@ function executeInstallCommand(
   request: {
     readonly target: TargetName | undefined;
     readonly force: boolean;
+    readonly scope: InstallScope;
   },
 ): Effect.Effect<CliResult, never, FileSystem.FileSystem | Path.Path> {
   return Effect.gen(function* () {
     if (request.target !== undefined) {
       const results = yield* installTargets({
-        targets: [request.target],
+        targets: [{ target: request.target, scope: request.scope }],
         force: request.force,
         env: options.env,
         skillSource: options.skillSource,
@@ -132,7 +138,7 @@ function executeInstallCommand(
     const selector = options.selectTargets ?? selectTargets;
     const selectedTargets = yield* Effect.tryPromise(() => Promise.resolve(selector())).pipe(
       Effect.catch(() =>
-        Effect.succeed<readonly TargetName[] | "cancelled">("cancelled" as const),
+        Effect.succeed<readonly InstallSelection[] | "cancelled">("cancelled" as const),
       ),
     );
 
@@ -197,7 +203,7 @@ export function formatInstallResults(results: readonly InstallResult[]): string 
             ? chalk.yellow("skipped")
             : chalk.red("failed");
 
-      return `${prefix} ${result.target}: ${result.destination} ${result.message}`;
+      return `${prefix} ${result.target} (${result.scope}): ${result.destination} ${result.message}`;
     })
     .join("\n");
 }
@@ -216,26 +222,50 @@ function getPreflightCommandError(args: readonly string[]): CliResult | undefine
   }
 
   const targetFlagIndex = args.indexOf("--target");
-  if (targetFlagIndex === -1) {
+  if (targetFlagIndex !== -1) {
+    const target = args[targetFlagIndex + 1];
+    if (target === undefined || target.startsWith("-")) {
+      return {
+        status: "error",
+        message: "--target requires a value",
+        output: [chalk.red("--target requires a value"), renderCommandHelp()].join("\n"),
+      };
+    }
+
+    if (!targetNames.includes(target as TargetName)) {
+      return {
+        status: "error",
+        message: `Unsupported target: ${target}`,
+        output: [
+          chalk.red(`Unsupported target: ${target}`),
+          `Supported targets: ${targetNames.join(", ")}`,
+          renderCommandHelp(),
+        ].join("\n"),
+      };
+    }
+  }
+
+  const scopeFlagIndex = args.indexOf("--scope");
+  if (scopeFlagIndex === -1) {
     return undefined;
   }
 
-  const target = args[targetFlagIndex + 1];
-  if (target === undefined || target.startsWith("-")) {
+  const scope = args[scopeFlagIndex + 1];
+  if (scope === undefined || scope.startsWith("-")) {
     return {
       status: "error",
-      message: "--target requires a value",
-      output: [chalk.red("--target requires a value"), renderCommandHelp()].join("\n"),
+      message: "--scope requires a value",
+      output: [chalk.red("--scope requires a value"), renderCommandHelp()].join("\n"),
     };
   }
 
-  if (!targetNames.includes(target as TargetName)) {
+  if (!scopeNames.includes(scope as InstallScope)) {
     return {
       status: "error",
-      message: `Unsupported target: ${target}`,
+      message: `Unsupported scope: ${scope}`,
       output: [
-        chalk.red(`Unsupported target: ${target}`),
-        `Supported targets: ${targetNames.join(", ")}`,
+        chalk.red(`Unsupported scope: ${scope}`),
+        `Supported scopes: ${scopeNames.join(", ")}`,
         renderCommandHelp(),
       ].join("\n"),
     };
@@ -245,19 +275,21 @@ function getPreflightCommandError(args: readonly string[]): CliResult | undefine
 }
 
 function renderCommandHelp(): string {
-  const help = (rootCommandForHelp.pipe(Command.withSubcommands([installCommandForHelp])) as unknown as {
-    readonly buildHelpDoc: (path: readonly string[]) => {
-      readonly description: string;
-      readonly usage: string;
-      readonly subcommands?: readonly {
-        readonly commands: readonly {
-          readonly name: string;
-          readonly description: string;
-          readonly shortDescription?: string | undefined;
+  const help = (
+    rootCommandForHelp.pipe(Command.withSubcommands([installCommandForHelp])) as unknown as {
+      readonly buildHelpDoc: (path: readonly string[]) => {
+        readonly description: string;
+        readonly usage: string;
+        readonly subcommands?: readonly {
+          readonly commands: readonly {
+            readonly name: string;
+            readonly description: string;
+            readonly shortDescription?: string | undefined;
+          }[];
         }[];
-      }[];
-    };
-  }).buildHelpDoc(["effect-skills"]);
+      };
+    }
+  ).buildHelpDoc(["effect-skills"]);
 
   const lines = [
     help.description,
@@ -280,4 +312,5 @@ function renderCommandHelp(): string {
 const installCommandForHelp = Command.make("install", {
   target: targetFlag,
   force: forceFlag,
+  scope: scopeFlag,
 }).pipe(Command.withDescription("Install Effect guidance into a supported coding agent"));
